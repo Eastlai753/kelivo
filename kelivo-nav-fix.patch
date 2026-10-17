@@ -1,0 +1,43 @@
+diff --git a/lib/features/home/controllers/scroll_controller.dart b/lib/features/home/controllers/scroll_controller.dart
+index 587cc61..3404b6d 100644
+--- a/lib/features/home/controllers/scroll_controller.dart
++++ b/lib/features/home/controllers/scroll_controller.dart
+@@ -69,6 +69,20 @@ class ChatAutoFollowScrollController extends ScrollController {
+     }
+   }
+ 
++  /// Drop every pending layout-positioning request (bottom pin and
++  /// distance-from-end preserve). User-initiated navigation (e.g. scroll to
++  /// top) must call this, otherwise a stale request re-corrects the position
++  /// during the next layout pass — with freshly-built leading items the
++  /// corrected target is based on estimated extents, which lands the viewport
++  /// a few items below the intended one.
++  void cancelLayoutPositioning() {
++    _positionAtBottomDuringLayout = false;
++    _bottomRequestYieldsToUserScroll = false;
++    _preserveDistanceFromEndDuringLayout = false;
++    _layoutBottomRequest++;
++    _layoutDistanceRequest++;
++  }
++
+   @override
+   ScrollPosition createScrollPosition(
+     ScrollPhysics physics,
+@@ -821,6 +835,17 @@ class ChatScrollController {
+       _lastJumpUserMessageId = null;
+       revealNavButtons();
+ 
++      // User-initiated jump: drop bottom-pinning state so layout-time
++      // corrections cannot drag the viewport away from the first message.
++      // Without this, the first scroll-to-top of a session drifts forward by
++      // the extent-estimation error of the never-built tail, and the state
++      // only clears later via the scroll listener.
++      _autoStickToBottom = false;
++      final followController = _scrollController;
++      if (followController is ChatAutoFollowScrollController) {
++        followController.cancelLayoutPositioning();
++      }
++
+       if (animate) {
+         final pos = _scrollController.position;
+         final distance = pos.pixels;
